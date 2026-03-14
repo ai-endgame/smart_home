@@ -10,6 +10,9 @@ pub struct SmartHome {
     pub devices: HashMap<String, Device>,
     /// Rooms keyed by their name (lowercased for lookup).
     pub rooms: HashMap<String, Room>,
+    /// Reverse index: device UUID → lowercased name key.
+    /// Allows O(1) device lookup by ID (used by get_room_devices).
+    devices_by_id: HashMap<String, String>,
 }
 
 impl SmartHome {
@@ -17,6 +20,7 @@ impl SmartHome {
         SmartHome {
             devices: HashMap::new(),
             rooms: HashMap::new(),
+            devices_by_id: HashMap::new(),
         }
     }
 
@@ -32,6 +36,7 @@ impl SmartHome {
 
         let device = Device::new(name, device_type.clone());
         let id = device.id.clone();
+        self.devices_by_id.insert(id.clone(), key.clone());
         self.devices.insert(key, device);
         info!(
             "Added device '{}' (type: {:?}, id: {})",
@@ -48,6 +53,7 @@ impl SmartHome {
         match self.devices.remove(&key) {
             Some(device) => {
                 info!("Removed device '{}' (id: {})", device.name, &device.id[..8]);
+                self.devices_by_id.remove(&device.id);
                 // Also remove from its room.
                 if let Some(room_name) = &device.room {
                     let room_key = room_name.to_lowercase();
@@ -240,7 +246,11 @@ impl SmartHome {
             Some(room) => room
                 .device_ids
                 .iter()
-                .filter_map(|id| self.devices.values().find(|d| &d.id == id))
+                .filter_map(|id| {
+                    self.devices_by_id
+                        .get(id)
+                        .and_then(|key| self.devices.get(key))
+                })
                 .collect(),
             None => Vec::new(),
         }

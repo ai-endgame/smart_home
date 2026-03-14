@@ -17,3 +17,8 @@ thiserror = "2"
 
 [dev-dependencies]
 tower = "0.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "smart_home_bench"
+harness = false
