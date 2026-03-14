@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Engineer"
+  short_description: "Build, debug, and harden Rust codebases"
+  default_prompt: "Use $rust-engineer to implement and review Rust changes with tests."

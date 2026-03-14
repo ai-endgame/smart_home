@@ -1,0 +1,13 @@
+/target
+
+# Coverage
+coverage*
+
+# Windsurf
+.windsurf
+
+# Claude
+.claude
+
+# Agent
+.agent
