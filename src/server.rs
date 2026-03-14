@@ -4,18 +4,20 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
     routing::{delete, get, patch, post},
 };
 use chrono::Utc;
 use log::info;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use thiserror::Error;
 use tokio::sync::{Mutex, RwLock, oneshot};
 use uuid::Uuid;
 
 use crate::{
     automation::{Action, AutomationEngine, Trigger},
+    db, discovery,
     manager::SmartHome,
     models::{Device, DeviceState, DeviceType},
 };
@@ -37,6 +39,10 @@ pub struct AppState {
     events: Arc<RwLock<Vec<ServerEvent>>>,
     clients: Arc<RwLock<HashMap<String, ClientSession>>>,
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    /// PostgreSQL pool; `None` when the server runs without a database URL.
+    db: Option<PgPool>,
+    /// Live mDNS-discovered devices on the local network.
+    discovery: discovery::DiscoveryStore,
 }
 
 impl AppState {
@@ -47,11 +53,20 @@ impl AppState {
             events: Arc::new(RwLock::new(Vec::new())),
             clients: Arc::new(RwLock::new(HashMap::new())),
             shutdown_tx: Arc::new(Mutex::new(shutdown_tx)),
+            db: None,
+            discovery: discovery::new_store(),
         }
     }
 }
 
-pub async fn run_server(addr: Option<String>) -> Result<(), ServerStartError> {
+/// Start the server with optional PostgreSQL persistence and mDNS discovery.
+///
+/// `database_url` — if `None`, the `DATABASE_URL` environment variable is
+/// checked as a fallback.  When no URL is found the server runs in-memory only.
+pub async fn run_server_full(
+    addr: Option<String>,
+    database_url: Option<String>,
+) -> Result<(), ServerStartError> {
     let bind_addr = addr
         .or_else(|| std::env::var("SMART_HOME_SERVER_ADDR").ok())
         .unwrap_or_else(|| DEFAULT_BIND_ADDR.to_string());
@@ -61,9 +76,37 @@ pub async fn run_server(addr: Option<String>) -> Result<(), ServerStartError> {
         .map_err(|_| ServerStartError::InvalidBindAddress(bind_addr.clone()))?;
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
-    let state = AppState::new(Some(shutdown_tx));
-    let app = router(state.clone());
+    let mut state = AppState::new(Some(shutdown_tx));
 
+    // ── Database ───────────────────────────────────────────────────────────
+    let effective_db_url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
+    if let Some(url) = effective_db_url {
+        match db::create_pool(&url).await {
+            Ok(pool) => {
+                match db::load_all_devices(&pool).await {
+                    Ok(devices) => {
+                        let count = devices.len();
+                        let mut home = state.home.write().await;
+                        for device in devices {
+                            home.insert_device(device);
+                        }
+                        info!("database: loaded {count} device(s) from storage");
+                    }
+                    Err(e) => log::error!("database: failed to load devices: {e}"),
+                }
+                state.db = Some(pool);
+            }
+            Err(e) => log::error!("database: connection failed — running without persistence: {e}"),
+        }
+    } else {
+        info!("no DATABASE_URL — running without persistence");
+    }
+
+    // ── mDNS discovery ─────────────────────────────────────────────────────
+    discovery::start(state.discovery.clone());
+
+    // ── HTTP server ────────────────────────────────────────────────────────
+    let app = router(state.clone());
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
     info!("smart_home_server listening on http://{}", socket_addr);
 
@@ -75,8 +118,15 @@ pub async fn run_server(addr: Option<String>) -> Result<(), ServerStartError> {
     Ok(())
 }
 
+/// Convenience wrapper — starts the server without an explicit database URL.
+/// The `DATABASE_URL` environment variable is still honoured.
+pub async fn run_server(addr: Option<String>) -> Result<(), ServerStartError> {
+    run_server_full(addr, None).await
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/", get(serve_ui))
         .route("/health", get(health))
         .route("/status", get(status))
         .route("/server/stop", post(stop_server))
@@ -102,7 +152,13 @@ pub fn router(state: AppState) -> Router {
         .route("/automation/rules/{name}", delete(remove_rule))
         .route("/automation/rules/{name}/toggle", post(toggle_rule))
         .route("/automation/run", post(run_automation))
+        .route("/discovery/devices", get(list_discovered))
+        .route("/discovery/devices/add", post(add_discovered_device))
         .with_state(state)
+}
+
+async fn serve_ui() -> Html<&'static str> {
+    Html(include_str!("ui.html"))
 }
 
 async fn shutdown_signal(mut rx: oneshot::Receiver<()>) {
@@ -484,6 +540,8 @@ async fn create_device(
             .ok_or_else(|| ApiError::Internal("device creation failed".to_string()))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceUpdated,
@@ -501,10 +559,20 @@ async fn remove_device(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<MessageResponse>, ApiError> {
+    // Capture the UUID before removing so we can delete it from the DB.
+    let device_id = {
+        let home = state.home.read().await;
+        home.get_device(&name)
+            .map(|d| d.id.clone())
+            .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
+    };
+
     {
         let mut home = state.home.write().await;
         home.remove_device(&name).map_err(map_common_error)?;
     }
+
+    delete_from_db(&state, &device_id).await;
 
     record_event(
         &state,
@@ -594,6 +662,8 @@ async fn update_device(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceUpdated,
@@ -627,6 +697,8 @@ async fn set_device_state(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceUpdated,
@@ -658,6 +730,8 @@ async fn set_device_brightness(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceUpdated,
@@ -688,6 +762,8 @@ async fn set_device_temperature(
             .cloned()
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
+
+    persist_device(&state, &device).await;
 
     record_event(
         &state,
@@ -748,6 +824,8 @@ async fn send_device_command(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::Request,
@@ -780,6 +858,8 @@ async fn connect_device(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceConnected,
@@ -808,6 +888,8 @@ async fn disconnect_device(
             .cloned()
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
+
+    persist_device(&state, &device).await;
 
     record_event(
         &state,
@@ -846,6 +928,8 @@ async fn report_device_error(
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
 
+    persist_device(&state, &device).await;
+
     record_event(
         &state,
         EventKind::DeviceError,
@@ -874,6 +958,8 @@ async fn clear_device_error(
             .cloned()
             .ok_or_else(|| ApiError::NotFound(format!("device '{}' not found", name)))?
     };
+
+    persist_device(&state, &device).await;
 
     record_event(
         &state,
@@ -1218,6 +1304,97 @@ async fn record_event(
 
     let mut events = state.events.write().await;
     events.push(event);
+}
+
+/// Persist the current snapshot of a device to the database (no-op when DB is absent).
+async fn persist_device(state: &AppState, device: &Device) {
+    if let Some(pool) = &state.db {
+        if let Err(e) = db::upsert_device(pool, device).await {
+            log::error!("DB persist failed for '{}': {e}", device.name);
+        }
+    }
+}
+
+/// Delete a device from the database by its UUID (no-op when DB is absent).
+async fn delete_from_db(state: &AppState, device_id: &str) {
+    if let Some(pool) = &state.db {
+        if let Err(e) = db::delete_device(pool, device_id).await {
+            log::error!("DB delete failed for '{device_id}': {e}");
+        }
+    }
+}
+
+// ── Discovery handlers ────────────────────────────────────────────────────────
+
+async fn list_discovered(
+    State(state): State<AppState>,
+) -> Json<Vec<discovery::DiscoveredDevice>> {
+    let mut list: Vec<discovery::DiscoveredDevice> = state
+        .discovery
+        .read()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect();
+    list.sort_by(|a, b| a.name.cmp(&b.name));
+    Json(list)
+}
+
+#[derive(Debug, Deserialize)]
+struct AddDiscoveredRequest {
+    /// The `id` field from the discovered device (its mDNS fullname).
+    discovered_id: String,
+    device_type: String,
+    /// Override the auto-detected name.  Defaults to the discovered device name.
+    name: Option<String>,
+}
+
+async fn add_discovered_device(
+    State(state): State<AppState>,
+    Json(body): Json<AddDiscoveredRequest>,
+) -> Result<Json<DeviceResponse>, ApiError> {
+    // Look up the discovered device.
+    let disc = {
+        let store = state.discovery.read().unwrap();
+        store
+            .get(&body.discovered_id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("discovered device not found: '{}'", body.discovered_id)))?
+    };
+
+    let name = body.name.unwrap_or_else(|| disc.name.clone());
+    let device_type = DeviceType::from_str_loose(&body.device_type).ok_or_else(|| {
+        ApiError::BadRequest(format!(
+            "invalid device_type '{}'; use light|thermostat|lock|switch|sensor",
+            body.device_type
+        ))
+    })?;
+
+    {
+        let mut home = state.home.write().await;
+        home.add_device(&name, device_type).map_err(map_create_error)?;
+    }
+
+    let device = {
+        let home = state.home.read().await;
+        home.get_device(&name)
+            .cloned()
+            .ok_or_else(|| ApiError::Internal("device creation failed".to_string()))?
+    };
+
+    persist_device(&state, &device).await;
+
+    record_event(
+        &state,
+        EventKind::DeviceUpdated,
+        "device",
+        format!("discovered device '{}' added to home", name),
+        Some(name),
+        None,
+    )
+    .await;
+
+    Ok(Json(device_to_response(&device)))
 }
 
 #[cfg(test)]

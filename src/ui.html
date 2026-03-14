@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Dashboard</title>
+    <style>
+        :root {
+            --bg: #f0f2f7;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-light: #eef2ff;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        /* ── Header ─────────────────────────────────────────────────── */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-brand .logo {
+            font-size: 1.6rem;
+            line-height: 1;
+        }
+
+        .header-brand h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .header-brand .version {
+            font-size: 0.7rem;
+            background: var(--accent-light);
+            color: var(--accent);
+            padding: 2px 7px;
+            border-radius: 100px;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-chips {
+            display: flex;
+            gap: 8px;
+        }
+
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 100px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-secondary);
+        }
+
+        .chip-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .chip-devices .chip-dot { background: var(--accent); }
+        .chip-online .chip-dot  { background: var(--success); }
+        .chip-rules .chip-dot   { background: var(--warning); }
+
+        .refresh-time {
+            font-size: 0.73rem;
+            color: var(--text-muted);
+        }
+
+        /* ── Main ───────────────────────────────────────────────────── */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 28px 32px;
+        }
+
+        /* ── Tabs ───────────────────────────────────────────────────── */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 3px;
+            width: fit-content;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            padding: 7px 18px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .tab-btn:not(.active):hover {
+            background: var(--bg);
+            color: var(--text-primary);
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Section toolbar ────────────────────────────────────────── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+
+        .toolbar-actions { display: flex; gap: 8px; }
+
+        /* ── Buttons ────────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 15px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+            line-height: 1;
+        }
+
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+
+        .btn-ghost {
+            background: var(--surface);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { background: var(--bg); color: var(--text-primary); }
+
+        .btn-danger-ghost {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid transparent;
+            padding: 5px 9px;
+            font-size: 0.78rem;
+        }
+        .btn-danger-ghost:hover { background: var(--danger-light); border-color: #fecaca; }
+
+        .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ── Device grid ────────────────────────────────────────────── */
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            gap: 18px;
+        }
+
+        /* ── Device card ────────────────────────────────────────────── */
+        .device-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: box-shadow 0.2s, transform 0.18s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .device-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            border-radius: 3px 0 0 3px;
+        }
+
+        .device-card.state-on::before   { background: var(--success); }
+        .device-card.state-off::before  { background: var(--border); }
+        .device-card.has-error::before  { background: var(--danger); }
+
+        .device-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        /* card header */
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .device-identity { display: flex; align-items: center; gap: 12px; }
+
+        .device-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .device-card.state-on .device-icon { background: var(--accent-light); }
+
+        .device-name {
+            font-weight: 700;
+            font-size: 0.97rem;
+            line-height: 1.25;
+            color: var(--text-primary);
+        }
+
+        .device-meta {
+            font-size: 0.73rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .meta-tag {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 1px 7px;
+        }
+
+        .meta-tag.connected    { background: var(--success-light); border-color: #a7f3d0; color: #065f46; }
+        .meta-tag.disconnected { background: var(--bg); color: var(--text-muted); }
+        .meta-tag.room         { background: var(--accent-light); border-color: #c7d2fe; color: #3730a3; }
+
+        /* card top-right controls */
+        .card-actions { display: flex; align-items: center; gap: 6px; }
+
+        /* toggle switch */
+        .toggle { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: #cbd5e1;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-thumb {
+            position: absolute;
+            width: 16px; height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            top: 3px; left: 3px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            pointer-events: none;
+        }
+        .toggle input:checked ~ .toggle-track { background: var(--success); }
+        .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
+
+        /* state badge */
+        .state-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+        .state-badge.on  { background: var(--success-light); color: #065f46; }
+        .state-badge.off { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+        /* controls section */
+        .card-controls { display: flex; flex-direction: column; gap: 11px; }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            min-width: 72px;
+        }
+
+        .control-end {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            min-width: 34px;
+            text-align: right;
+        }
+
+        /* range slider */
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            border-radius: 100px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input[type="range"]:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* temp input */
+        .temp-input-wrap { display: flex; align-items: center; gap: 6px; flex: 1; }
+        input[type="number"] {
+            width: 72px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            outline: none;
+            background: var(--bg);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        input[type="number"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+            background: #fff;
+        }
+        .set-btn {
+            padding: 4px 9px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+        }
+        .set-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* card footer */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .connect-btn { }
+
+        /* error box */
+        .error-box {
+            margin-top: 12px;
+            background: var(--danger-light);
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-sm);
+            padding: 8px 10px;
+            font-size: 0.75rem;
+            color: var(--danger);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-box .error-text { flex: 1; }
+        .error-clear {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0 2px;
+            opacity: 0.7;
+        }
+        .error-clear:hover { opacity: 1; }
+
+        /* ── Rules list ─────────────────────────────────────────────── */
+        .rules-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .rule-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: var(--shadow);
+            transition: opacity 0.2s;
+        }
+
+        .rule-card.disabled-rule { opacity: 0.6; }
+
+        .rule-indicator {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .rule-indicator.on  { background: var(--success); }
+        .rule-indicator.off { background: var(--text-muted); }
+
+        .rule-info { flex: 1; min-width: 0; }
+        .rule-name { font-weight: 600; font-size: 0.9rem; }
+        .rule-desc {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .rule-actions { display: flex; gap: 6px; }
+
+        /* ── Empty state ────────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 56px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state .empty-icon { font-size: 2.6rem; margin-bottom: 12px; }
+        .empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+        .empty-state p  { font-size: 0.85rem; }
+
+        /* ── Modal ──────────────────────────────────────────────────── */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.45);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .overlay.open { opacity: 1; pointer-events: all; }
+
+        .modal {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 28px;
+            width: 440px;
+            max-width: calc(100vw - 32px);
+            box-shadow: var(--shadow-lg);
+            transform: scale(0.94) translateY(8px);
+            transition: transform 0.22s;
+        }
+        .overlay.open .modal { transform: scale(1) translateY(0); }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+        .modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+        .modal-close {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 28px; height: 28px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+        }
+        .modal-close:hover { background: var(--danger-light); color: var(--danger); }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            outline: none;
+            background: var(--surface);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 22px;
+        }
+
+        /* ── Toast ──────────────────────────────────────────────────── */
+        .toasts {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.83rem;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            animation: toastIn 0.2s ease;
+            pointer-events: all;
+            max-width: 300px;
+        }
+        .toast-default { background: #1e293b; color: #fff; }
+        .toast-success  { background: var(--success); color: #fff; }
+        .toast-error    { background: var(--danger); color: #fff; }
+        @keyframes toastIn {
+            from { transform: translateX(110%); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ── Responsive ─────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            header { padding: 0 16px; }
+            main { padding: 16px; }
+            .stat-chips { display: none; }
+            .form-row { grid-template-columns: 1fr; }
+            .devices-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ────────────────────────────────────────────────────────── -->
+<header>
+    <div class="header-brand">
+        <span class="logo">🏠</span>
+        <h1>Smart Home</h1>
+        <span class="version">v0.1</span>
+    </div>
+    <div class="header-right">
+        <div class="stat-chips">
+            <div class="stat-chip chip-devices">
+                <div class="chip-dot"></div>
+                <span id="stat-devices">— devices</span>
+            </div>
+            <div class="stat-chip chip-online">
+                <div class="chip-dot"></div>
+                <span id="stat-online">— online</span>
+            </div>
+            <div class="stat-chip chip-rules">
+                <div class="chip-dot"></div>
+                <span id="stat-rules">— rules</span>
+            </div>
+        </div>
+        <span class="refresh-time" id="refresh-time"></span>
+    </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────── -->
+<main>
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="devices"    onclick="switchTab(this)">Devices</button>
+        <button class="tab-btn"        data-tab="discovery"  onclick="switchTab(this)">Discovery</button>
+        <button class="tab-btn"        data-tab="automation" onclick="switchTab(this)">Automation</button>
+    </div>
+
+    <!-- Devices tab -->
+    <div id="tab-devices" class="tab-panel active">
+        <div class="toolbar">
+            <span class="toolbar-title">All Devices</span>
+            <div class="toolbar-actions">
+                <button class="btn btn-ghost" onclick="refresh()">↻ Refresh</button>
+                <button class="btn btn-primary" onclick="openModal('add-device-modal')">＋ Add Device</button>
+            </div>
+        </div>
+        <div id="devices-grid" class="devices-grid">
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">⏳</div>
+                <h3>Loading devices…</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery tab -->
+    <div id="tab-discovery" class="tab-panel">
+        <div class="toolbar">
+            <span class="toolbar-title">Network Discovery (mDNS)</span>
+            <div class="toolbar-actions">
+                <button class="btn btn-ghost" onclick="fetchDiscovered()">↻ Refresh</button>
+            </div>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:18px">
+            Devices that announce themselves via mDNS on your local network appear here automatically.
+            Click <strong>Add to Home</strong> to register a discovered device in the dashboard.
+        </p>
+        <div id="discovery-grid" class="devices-grid">
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">📡</div>
+                <h3>Scanning the network…</h3>
+                <p>mDNS discovery runs continuously in the background.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Automation tab -->
+    <div id="tab-automation" class="tab-panel">
+        <div class="toolbar">
+            <span class="toolbar-title">Automation Rules</span>
+            <div class="toolbar-actions">
+                <button class="btn btn-ghost" onclick="runAutomation()">▶ Run Now</button>
+                <button class="btn btn-primary" onclick="openModal('add-rule-modal')">＋ Add Rule</button>
+            </div>
+        </div>
+        <div id="rules-container">
+            <div class="empty-state">
+                <div class="empty-icon">⏳</div>
+                <h3>Loading rules…</h3>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ── Add Device Modal ───────────────────────────────────────────────── -->
+<div class="overlay" id="add-device-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Add New Device</h2>
+            <button class="modal-close" onclick="closeModal('add-device-modal')">✕</button>
+        </div>
+        <div class="form-group">
+            <label for="new-device-name">Device Name</label>
+            <input type="text" id="new-device-name" placeholder="e.g. Living Room Lamp" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="new-device-type">Device Type</label>
+            <select id="new-device-type">
+                <option value="light">💡 Light</option>
+                <option value="thermostat">🌡️ Thermostat</option>
+                <option value="lock">🔒 Lock</option>
+                <option value="switch">🔘 Switch</option>
+                <option value="sensor">📡 Sensor</option>
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('add-device-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddDevice()">Add Device</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Add Rule Modal ─────────────────────────────────────────────────── -->
+<div class="overlay" id="add-rule-modal">
+    <div class="modal" style="width:500px">
+        <div class="modal-header">
+            <h2>Add Automation Rule</h2>
+            <button class="modal-close" onclick="closeModal('add-rule-modal')">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label for="rule-name">Rule Name</label>
+            <input type="text" id="rule-name" placeholder="e.g. Night Mode">
+        </div>
+
+        <div style="padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:14px">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">Trigger — when this happens</div>
+            <div class="form-group">
+                <label>Trigger Type</label>
+                <select id="trigger-type" onchange="syncTriggerFields()">
+                    <option value="device_state_change">Device changes state</option>
+                    <option value="temperature_above">Temperature rises above threshold</option>
+                    <option value="temperature_below">Temperature drops below threshold</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Device Name</label>
+                    <input type="text" id="trigger-device" placeholder="Device name">
+                </div>
+                <div class="form-group" id="trigger-state-grp">
+                    <label>Target State</label>
+                    <select id="trigger-state">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
+                    </select>
+                </div>
+                <div class="form-group" id="trigger-thresh-grp" style="display:none">
+                    <label>Threshold (°C)</label>
+                    <input type="number" id="trigger-threshold" placeholder="25" step="0.5">
+                </div>
+            </div>
+        </div>
+
+        <div style="padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:14px">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">Action — do this</div>
+            <div class="form-group">
+                <label>Action Type</label>
+                <select id="action-type" onchange="syncActionFields()">
+                    <option value="device_state">Set device state</option>
+                    <option value="brightness">Set brightness</option>
+                    <option value="temperature">Set temperature</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Device Name</label>
+                    <input type="text" id="action-device" placeholder="Device name">
+                </div>
+                <div class="form-group" id="action-state-grp">
+                    <label>State</label>
+                    <select id="action-state">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
+                    </select>
+                </div>
+                <div class="form-group" id="action-bright-grp" style="display:none">
+                    <label>Brightness (0–100)</label>
+                    <input type="number" id="action-brightness" min="0" max="100" placeholder="50">
+                </div>
+                <div class="form-group" id="action-temp-grp" style="display:none">
+                    <label>Temperature (°C)</label>
+                    <input type="number" id="action-temperature" placeholder="22" step="0.5">
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('add-rule-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddRule()">Add Rule</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Add Discovered Device Modal ───────────────────────────────────────── -->
+<div class="overlay" id="add-discovered-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Add Discovered Device</h2>
+            <button class="modal-close" onclick="closeModal('add-discovered-modal')">✕</button>
+        </div>
+        <div class="form-group">
+            <label for="disc-device-name">Device Name</label>
+            <input type="text" id="disc-device-name" placeholder="Enter a friendly name">
+        </div>
+        <div class="form-group">
+            <label for="disc-device-type">Device Type</label>
+            <select id="disc-device-type">
+                <option value="light">💡 Light</option>
+                <option value="thermostat">🌡️ Thermostat</option>
+                <option value="lock">🔒 Lock</option>
+                <option value="switch">🔘 Switch</option>
+                <option value="sensor">📡 Sensor</option>
+            </select>
+        </div>
+        <div id="disc-detail-box" style="background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;font-size:0.78rem;color:var(--text-secondary);margin-bottom:4px;line-height:1.8"></div>
+        <input type="hidden" id="disc-device-id">
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('add-discovered-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddDiscovered()">Add to Home</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toasts ─────────────────────────────────────────────────────────── -->
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+
+// ── API helper ───────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+    const res = await fetch(path, {
+        method,
+        headers: body ? {'Content-Type': 'application/json'} : {},
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+    return data;
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'default') {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById('tab-' + btn.dataset.tab);
+    panel.classList.add('active');
+    if (btn.dataset.tab === 'automation') fetchRules();
+    if (btn.dataset.tab === 'discovery') fetchDiscovered();
+}
+
+// ── Modal helpers ────────────────────────────────────────────────────────────
+function openModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+// Close on overlay click
+document.querySelectorAll('.overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) overlay.classList.remove('open');
+    });
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const ICONS = { light:'💡', thermostat:'🌡️', lock:'🔒', switch:'🔘', sensor:'📡' };
+const icon = t => ICONS[t] || '📟';
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const slug = s => s.replace(/\W/g, '_');
+
+// ── Status bar ───────────────────────────────────────────────────────────────
+async function fetchStatus() {
+    try {
+        const s = await api('GET', '/status');
+        document.getElementById('stat-devices').textContent = `${s.devices} device${s.devices !== 1 ? 's' : ''}`;
+        document.getElementById('stat-online').textContent  = `${s.connected_devices} online`;
+        document.getElementById('stat-rules').textContent   = `${s.rules} rule${s.rules !== 1 ? 's' : ''}`;
+        const t = new Date();
+        document.getElementById('refresh-time').textContent =
+            `Updated ${t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+    } catch {
+        document.getElementById('refresh-time').textContent = '⚠ Connection error';
+    }
+}
+
+// ── Devices ──────────────────────────────────────────────────────────────────
+let devices = [];
+
+async function fetchDevices() {
+    try {
+        devices = await api('GET', '/devices');
+        renderDevices();
+    } catch (e) {
+        document.getElementById('devices-grid').innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">⚠️</div>
+                <h3>Failed to load devices</h3>
+                <p>${e.message}</p>
+            </div>`;
+    }
+}
+
+function renderDevices() {
+    const grid = document.getElementById('devices-grid');
+    if (!devices.length) {
+        grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">🏠</div>
+                <h3>No devices yet</h3>
+                <p>Click <strong>Add Device</strong> to get started.</p>
+            </div>`;
+        return;
+    }
+    grid.innerHTML = devices.map(deviceCard).join('');
+}
+
+function deviceCard(d) {
+    const on = d.state === 'on';
+    const stateClass = d.last_error ? 'has-error' : (on ? 'state-on' : 'state-off');
+
+    // meta tags
+    const connTag = d.connected
+        ? `<span class="meta-tag connected">Connected</span>`
+        : `<span class="meta-tag disconnected">Disconnected</span>`;
+    const roomTag = d.room
+        ? `<span class="meta-tag room">📍 ${d.room}</span>`
+        : '';
+
+    // type-specific controls
+    let controls = '';
+    if (d.device_type === 'light') {
+        controls = `
+        <div class="control-row">
+            <span class="control-label">Brightness</span>
+            <input type="range" min="0" max="100" value="${d.brightness}"
+                   id="br-slider-${slug(d.name)}"
+                   oninput="liveUpdateBr('${d.name}', this.value)"
+                   onchange="apiBrightness('${d.name}', this.value)"
+                   ${on ? '' : 'disabled'}>
+            <span class="control-end" id="br-val-${slug(d.name)}">${d.brightness}%</span>
+        </div>`;
+    }
+    if (d.device_type === 'thermostat' && d.temperature !== null) {
+        controls = `
+        <div class="control-row">
+            <span class="control-label">Temperature</span>
+            <div class="temp-input-wrap">
+                <input type="number" value="${d.temperature.toFixed(1)}" step="0.5"
+                       id="temp-inp-${slug(d.name)}">
+                <span class="control-end">°C</span>
+                <button class="set-btn" onclick="apiTemperature('${d.name}')">Set</button>
+            </div>
+        </div>`;
+    }
+
+    const connectBtn = d.connected
+        ? `<button class="btn btn-ghost btn-sm" onclick="apiDisconnect('${d.name}')">Disconnect</button>`
+        : `<button class="btn btn-ghost btn-sm" onclick="apiConnect('${d.name}')">Connect</button>`;
+
+    const errorBox = d.last_error ? `
+        <div class="error-box">
+            <span class="error-text">⚠ ${d.last_error}</span>
+            <button class="error-clear" title="Clear error" onclick="apiClearError('${d.name}')">✕</button>
+        </div>` : '';
+
+    return `
+<div class="device-card ${stateClass}" id="card-${slug(d.name)}">
+    <div class="card-header">
+        <div class="device-identity">
+            <div class="device-icon">${icon(d.device_type)}</div>
+            <div>
+                <div class="device-name">${d.name}</div>
+                <div class="device-meta">
+                    <span class="meta-tag">${cap(d.device_type)}</span>
+                    ${connTag}
+                    ${roomTag}
+                </div>
+            </div>
+        </div>
+        <div class="card-actions">
+            <label class="toggle" title="${on ? 'Turn Off' : 'Turn On'}">
+                <input type="checkbox" ${on ? 'checked' : ''}
+                       onchange="apiToggle('${d.name}', this.checked)">
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+            </label>
+            <button class="btn btn-danger-ghost" title="Remove" onclick="apiRemove('${d.name}')">✕</button>
+        </div>
+    </div>
+
+    <span class="state-badge ${on ? 'on' : 'off'}">${on ? 'ON' : 'OFF'}</span>
+
+    ${controls ? `<div class="card-controls">${controls}</div>` : ''}
+
+    <div class="card-footer">
+        ${connectBtn}
+        <span style="font-size:0.72rem;color:var(--text-muted)">ID: ${d.id.slice(0,8)}</span>
+    </div>
+
+    ${errorBox}
+</div>`;
+}
+
+function liveUpdateBr(name, val) {
+    const el = document.getElementById('br-val-' + slug(name));
+    if (el) el.textContent = val + '%';
+}
+
+// ── Device API actions ────────────────────────────────────────────────────────
+async function apiToggle(name, turnOn) {
+    try {
+        await api('PATCH', `/devices/${encodeURIComponent(name)}/state`, {state: turnOn ? 'on' : 'off'});
+        await refresh();
+    } catch (e) {
+        toast(`Toggle failed: ${e.message}`, 'error');
+        fetchDevices(); // revert optimistic UI
+    }
+}
+
+async function apiBrightness(name, val) {
+    try {
+        await api('PATCH', `/devices/${encodeURIComponent(name)}/brightness`, {brightness: Number(val)});
+    } catch (e) {
+        toast(`Brightness error: ${e.message}`, 'error');
+    }
+}
+
+async function apiTemperature(name) {
+    const inp = document.getElementById('temp-inp-' + slug(name));
+    if (!inp) return;
+    const val = parseFloat(inp.value);
+    if (isNaN(val)) { toast('Invalid temperature value', 'error'); return; }
+    try {
+        await api('PATCH', `/devices/${encodeURIComponent(name)}/temperature`, {temperature: val});
+        toast(`Temperature set to ${val}°C`, 'success');
+    } catch (e) {
+        toast(`Temperature error: ${e.message}`, 'error');
+    }
+}
+
+async function apiConnect(name) {
+    try {
+        await api('POST', `/devices/${encodeURIComponent(name)}/connect`);
+        toast(`${name} marked connected`, 'success');
+        await refresh();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function apiDisconnect(name) {
+    try {
+        await api('POST', `/devices/${encodeURIComponent(name)}/disconnect`);
+        toast(`${name} marked disconnected`);
+        await refresh();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function apiRemove(name) {
+    if (!confirm(`Remove "${name}"?`)) return;
+    try {
+        await api('DELETE', `/devices/${encodeURIComponent(name)}`);
+        toast(`Removed "${name}"`, 'success');
+        await refresh();
+    } catch (e) {
+        toast(`Remove failed: ${e.message}`, 'error');
+    }
+}
+
+async function apiClearError(name) {
+    try {
+        await api('POST', `/devices/${encodeURIComponent(name)}/error/clear`);
+        fetchDevices();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+// ── Add device form ──────────────────────────────────────────────────────────
+async function submitAddDevice() {
+    const name = document.getElementById('new-device-name').value.trim();
+    const type = document.getElementById('new-device-type').value;
+    if (!name) { toast('Device name is required', 'error'); return; }
+    try {
+        await api('POST', '/devices', {name, device_type: type});
+        toast(`"${name}" added`, 'success');
+        closeModal('add-device-modal');
+        document.getElementById('new-device-name').value = '';
+        await refresh();
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+    }
+}
+document.getElementById('new-device-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitAddDevice();
+});
+
+// ── Automation ───────────────────────────────────────────────────────────────
+let rules = [];
+
+async function fetchRules() {
+    try {
+        rules = await api('GET', '/automation/rules');
+        renderRules();
+    } catch (e) {
+        document.getElementById('rules-container').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⚠️</div>
+                <h3>Failed to load rules</h3>
+                <p>${e.message}</p>
+            </div>`;
+    }
+}
+
+function renderRules() {
+    const el = document.getElementById('rules-container');
+    if (!rules.length) {
+        el.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⚡</div>
+                <h3>No automation rules yet</h3>
+                <p>Click <strong>Add Rule</strong> to automate your home.</p>
+            </div>`;
+        return;
+    }
+    el.innerHTML = `<div class="rules-list">${rules.map(ruleCard).join('')}</div>`;
+}
+
+function fmtTrigger(t) {
+    if (!t) return '?';
+    if (t.type === 'device_state_change') return `"${t.device_name}" → ${t.target_state}`;
+    if (t.type === 'temperature_above')   return `"${t.device_name}" temp > ${t.threshold}°C`;
+    if (t.type === 'temperature_below')   return `"${t.device_name}" temp < ${t.threshold}°C`;
+    return t.type;
+}
+function fmtAction(a) {
+    if (!a) return '?';
+    if (a.type === 'device_state') return `"${a.device_name}" → ${a.state}`;
+    if (a.type === 'brightness')   return `"${a.device_name}" brightness → ${a.brightness}%`;
+    if (a.type === 'temperature')  return `"${a.device_name}" temp → ${a.temperature}°C`;
+    return a.type;
+}
+
+function ruleCard(r) {
+    return `
+<div class="rule-card ${r.enabled ? '' : 'disabled-rule'}">
+    <div class="rule-indicator ${r.enabled ? 'on' : 'off'}"></div>
+    <div class="rule-info">
+        <div class="rule-name">${r.name}</div>
+        <div class="rule-desc">If ${fmtTrigger(r.trigger)} → ${fmtAction(r.action)}</div>
+    </div>
+    <div class="rule-actions">
+        <button class="btn btn-ghost btn-sm" onclick="apiToggleRule('${r.name}')">
+            ${r.enabled ? 'Disable' : 'Enable'}
+        </button>
+        <button class="btn btn-danger-ghost btn-sm" onclick="apiRemoveRule('${r.name}')">Remove</button>
+    </div>
+</div>`;
+}
+
+async function apiToggleRule(name) {
+    try {
+        await api('POST', `/automation/rules/${encodeURIComponent(name)}/toggle`);
+        await fetchRules();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function apiRemoveRule(name) {
+    if (!confirm(`Remove rule "${name}"?`)) return;
+    try {
+        await api('DELETE', `/automation/rules/${encodeURIComponent(name)}`);
+        toast(`Rule removed`, 'success');
+        await fetchRules();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function runAutomation() {
+    try {
+        const res = await api('POST', '/automation/run');
+        toast(`${res.actions_executed} action(s) executed`, res.actions_executed ? 'success' : 'default');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+// ── Add rule form ─────────────────────────────────────────────────────────────
+function syncTriggerFields() {
+    const type = document.getElementById('trigger-type').value;
+    const isState = type === 'device_state_change';
+    document.getElementById('trigger-state-grp').style.display  = isState ? '' : 'none';
+    document.getElementById('trigger-thresh-grp').style.display = isState ? 'none' : '';
+}
+
+function syncActionFields() {
+    const type = document.getElementById('action-type').value;
+    document.getElementById('action-state-grp').style.display  = type === 'device_state' ? '' : 'none';
+    document.getElementById('action-bright-grp').style.display = type === 'brightness'   ? '' : 'none';
+    document.getElementById('action-temp-grp').style.display   = type === 'temperature'  ? '' : 'none';
+}
+
+async function submitAddRule() {
+    const name = document.getElementById('rule-name').value.trim();
+    if (!name) { toast('Rule name is required', 'error'); return; }
+
+    // Build trigger
+    const tType  = document.getElementById('trigger-type').value;
+    const tDev   = document.getElementById('trigger-device').value.trim();
+    if (!tDev) { toast('Trigger device name is required', 'error'); return; }
+    let trigger;
+    if (tType === 'device_state_change') {
+        trigger = { type: tType, device_name: tDev,
+                    target_state: document.getElementById('trigger-state').value };
+    } else {
+        const threshold = parseFloat(document.getElementById('trigger-threshold').value);
+        if (isNaN(threshold)) { toast('Invalid threshold value', 'error'); return; }
+        trigger = { type: tType, device_name: tDev, threshold };
+    }
+
+    // Build action
+    const aType = document.getElementById('action-type').value;
+    const aDev  = document.getElementById('action-device').value.trim();
+    if (!aDev) { toast('Action device name is required', 'error'); return; }
+    let action;
+    if (aType === 'device_state') {
+        action = { type: aType, device_name: aDev,
+                   state: document.getElementById('action-state').value };
+    } else if (aType === 'brightness') {
+        const brightness = parseInt(document.getElementById('action-brightness').value, 10);
+        if (isNaN(brightness)) { toast('Invalid brightness value', 'error'); return; }
+        action = { type: aType, device_name: aDev, brightness };
+    } else {
+        const temperature = parseFloat(document.getElementById('action-temperature').value);
+        if (isNaN(temperature)) { toast('Invalid temperature value', 'error'); return; }
+        action = { type: aType, device_name: aDev, temperature };
+    }
+
+    try {
+        await api('POST', '/automation/rules', { name, trigger, action });
+        toast(`Rule "${name}" added`, 'success');
+        closeModal('add-rule-modal');
+        document.getElementById('rule-name').value = '';
+        await fetchRules();
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+    }
+}
+
+// ── Discovery ─────────────────────────────────────────────────────────────────
+let discoveredDevices = [];
+
+async function fetchDiscovered() {
+    try {
+        discoveredDevices = await api('GET', '/discovery/devices');
+        renderDiscovered();
+    } catch (e) {
+        document.getElementById('discovery-grid').innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">⚠️</div>
+                <h3>Discovery unavailable</h3>
+                <p>${e.message}</p>
+            </div>`;
+    }
+}
+
+function renderDiscovered() {
+    const grid = document.getElementById('discovery-grid');
+    if (!discoveredDevices.length) {
+        grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+                <div class="empty-icon">📡</div>
+                <h3>No devices discovered yet</h3>
+                <p>mDNS scanning is active. Devices that announce themselves on the network will appear here.</p>
+            </div>`;
+        return;
+    }
+    grid.innerHTML = discoveredDevices.map((d, i) => discCard(d, i)).join('');
+}
+
+function discCard(d, i) {
+    const addrs = d.addresses.length ? d.addresses.join(', ') : d.host;
+    const typeLabel = cap(d.suggested_type);
+    const svcShort = d.service_type.replace('.local.', '');
+    return `
+<div class="device-card state-off" style="border-left-color:var(--accent)">
+    <div class="card-header">
+        <div class="device-identity">
+            <div class="device-icon" style="background:var(--accent-light)">📡</div>
+            <div>
+                <div class="device-name">${d.name}</div>
+                <div class="device-meta">
+                    <span class="meta-tag">${svcShort}</span>
+                    <span class="meta-tag">${addrs}:${d.port}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="state-badge off" style="background:var(--accent-light);color:var(--accent);border:none">Suggested: ${typeLabel}</span>
+    <div class="card-footer">
+        <button class="btn btn-primary btn-sm" onclick="openAddDiscovered(${i})">
+            ＋ Add to Home
+        </button>
+        <span style="font-size:0.72rem;color:var(--text-muted)">${d.host}</span>
+    </div>
+</div>`;
+}
+
+function openAddDiscovered(i) {
+    const d = discoveredDevices[i];
+    document.getElementById('disc-device-id').value   = d.id;
+    document.getElementById('disc-device-name').value = d.name;
+    document.getElementById('disc-device-type').value = d.suggested_type || 'sensor';
+    const addrs = d.addresses.length ? d.addresses.join(', ') : d.host;
+    document.getElementById('disc-detail-box').innerHTML =
+        `<strong>Host:</strong> ${d.host}<br>` +
+        `<strong>Address:</strong> ${addrs}:${d.port}<br>` +
+        `<strong>Service:</strong> ${d.service_type}`;
+    openModal('add-discovered-modal');
+    setTimeout(() => document.getElementById('disc-device-name').select(), 50);
+}
+
+async function submitAddDiscovered() {
+    const id   = document.getElementById('disc-device-id').value;
+    const name = document.getElementById('disc-device-name').value.trim();
+    const type = document.getElementById('disc-device-type').value;
+    if (!name) { toast('Device name is required', 'error'); return; }
+    try {
+        await api('POST', '/discovery/devices/add', { discovered_id: id, device_type: type, name });
+        toast(`"${name}" added to home`, 'success');
+        closeModal('add-discovered-modal');
+        await refresh();
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+    }
+}
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
+async function refresh() {
+    await Promise.all([fetchStatus(), fetchDevices()]);
+}
+
+// Boot
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

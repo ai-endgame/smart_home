@@ -26,6 +26,13 @@ impl SmartHome {
 
     // ── Device operations ───────────────────────────────────────────
 
+    /// Insert a device that already has a UUID (used when loading from the database).
+    pub fn insert_device(&mut self, device: Device) {
+        let key = device.name.to_lowercase();
+        self.devices_by_id.insert(device.id.clone(), key.clone());
+        self.devices.insert(key, device);
+    }
+
     /// Add a new device to the home.
     pub fn add_device(&mut self, name: &str, device_type: DeviceType) -> Result<String, String> {
         let key = name.to_lowercase();

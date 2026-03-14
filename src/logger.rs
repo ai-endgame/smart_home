@@ -6,8 +6,21 @@
 /// # Examples
 /// - `RUST_LOG=debug cargo run` - Enable debug logging
 /// - `RUST_LOG=smart_home=trace cargo run` - Enable trace logging for this crate only
+/// - `RUST_LOG=mdns_sd=debug` - Re-enable suppressed mdns-sd internal logs
 pub fn init() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::new()
+        // Global default: show INFO and above from our own code.
+        .filter_level(log::LevelFilter::Info)
+        // mdns-sd 0.11 logs non-fatal EAGAIN socket errors at ERROR level on
+        // multi-homed macOS machines (e.g. "Resource temporarily unavailable
+        // (os error 35)" when sending IPv6 multicast). These are transient and
+        // the daemon recovers on its own, so we silence the entire module by
+        // default.  Set RUST_LOG=mdns_sd=debug to re-enable all mdns_sd output.
+        .filter_module("mdns_sd", log::LevelFilter::Off)
+        // RUST_LOG always wins — it is parsed last so its entries take priority
+        // over everything set above.
+        .parse_env("RUST_LOG")
+        .init();
 }
 
 #[cfg(test)]
