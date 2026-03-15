@@ -11,3 +11,10 @@ coverage*
 
 # Agent
 .agent
+
+# node modules
+frontend/node_modules
+
+# bakend
+backend/target/debug/
+backend/target/release/

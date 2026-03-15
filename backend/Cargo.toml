@@ -1,0 +1,36 @@
+[package]
+name = "smart_home"
+version = "0.1.0"
+edition = "2024"
+description = "A smart home management system"
+
+[[bin]]
+name = "smart_home"
+path = "src/main.rs"
+
+[[bin]]
+name = "smart_home_server"
+path = "src/bin/smart_home_server.rs"
+
+[dependencies]
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "net"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
+mdns-sd = "0.11"
+dotenvy = "0.15"
+
+[dev-dependencies]
+tower = "0.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "smart_home_bench"
+harness = false
