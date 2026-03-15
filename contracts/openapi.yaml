@@ -1,0 +1,535 @@
+openapi: 3.1.0
+info:
+  title: Smart Home API
+  version: 0.1.0
+  description: REST API for the Smart Home backend (Axum/Rust)
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+
+tags:
+  - name: system
+  - name: devices
+  - name: automation
+  - name: discovery
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /status:
+    get:
+      tags: [system]
+      summary: Home summary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemStatus" }
+
+  /server/stop:
+    post:
+      tags: [system]
+      summary: Initiate graceful shutdown
+      responses:
+        "200":
+          description: Shutdown initiated
+        "400":
+          description: No shutdown channel configured
+
+  /events:
+    get:
+      tags: [system]
+      summary: List server-side event log
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServerEvent" }
+
+  /clients:
+    get:
+      tags: [system]
+      summary: List connected clients
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ClientSession" }
+
+  /clients/connect:
+    post:
+      tags: [system]
+      summary: Register a client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClientSession" }
+
+  /clients/{client_id}/disconnect:
+    post:
+      tags: [system]
+      summary: Disconnect a client
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Client not found
+
+  /api/devices:
+    get:
+      tags: [devices]
+      summary: List all devices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Device" }
+    post:
+      tags: [devices]
+      summary: Create a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDeviceRequest" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "409":
+          description: Device name already exists
+
+  /api/devices/{name}:
+    get:
+      tags: [devices]
+      summary: Get a device
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "404":
+          description: Not found
+    patch:
+      tags: [devices]
+      summary: Update device fields
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDeviceRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "400":
+          description: Bad request (empty payload or invalid values)
+        "404":
+          description: Not found
+    delete:
+      tags: [devices]
+      summary: Remove a device
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Removed
+        "404":
+          description: Not found
+
+  /api/devices/{name}/state:
+    patch:
+      tags: [devices]
+      summary: Set device state (on/off)
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [on, off] }
+      responses:
+        "200": { description: Updated }
+        "400": { description: Invalid state value }
+        "404": { description: Not found }
+
+  /api/devices/{name}/brightness:
+    patch:
+      tags: [devices]
+      summary: Set brightness (lights only)
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [brightness]
+              properties:
+                brightness: { type: integer, minimum: 0, maximum: 100 }
+      responses:
+        "200": { description: Updated }
+        "400": { description: Not a light or invalid value }
+        "404": { description: Not found }
+
+  /api/devices/{name}/temperature:
+    patch:
+      tags: [devices]
+      summary: Set temperature (thermostats only)
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [temperature]
+              properties:
+                temperature: { type: number }
+      responses:
+        "200": { description: Updated }
+        "400": { description: Not a thermostat }
+        "404": { description: Not found }
+
+  /api/devices/{name}/connect:
+    post:
+      tags: [devices]
+      summary: Mark device as connected
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+
+  /api/devices/{name}/disconnect:
+    post:
+      tags: [devices]
+      summary: Mark device as disconnected
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+
+  /api/devices/{name}/error:
+    post:
+      tags: [devices]
+      summary: Report a device error
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+      responses:
+        "200": { description: OK }
+        "400": { description: Empty message }
+        "404": { description: Not found }
+
+  /api/devices/{name}/error/clear:
+    post:
+      tags: [devices]
+      summary: Clear a device error
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+
+  /api/devices/{name}/events:
+    get:
+      tags: [devices]
+      summary: List events for a specific device
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServerEvent" }
+
+  /api/automation/rules:
+    get:
+      tags: [automation]
+      summary: List automation rules
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AutomationRule" }
+    post:
+      tags: [automation]
+      summary: Add an automation rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRuleRequest" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutomationRule" }
+        "409":
+          description: Rule name already exists
+
+  /api/automation/rules/{name}:
+    delete:
+      tags: [automation]
+      summary: Remove a rule
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Removed }
+        "404": { description: Not found }
+
+  /api/automation/rules/{name}/toggle:
+    post:
+      tags: [automation]
+      summary: Enable or disable a rule
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutomationRule" }
+        "404": { description: Not found }
+
+  /api/automation/run:
+    post:
+      tags: [automation]
+      summary: Evaluate and execute all enabled rules
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions_executed: { type: integer }
+
+  /api/discovery/devices:
+    get:
+      tags: [discovery]
+      summary: List mDNS-discovered devices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiscoveredDevice" }
+
+  /api/discovery/devices/add:
+    post:
+      tags: [discovery]
+      summary: Add a discovered device to the home
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDeviceRequest" }
+      responses:
+        "200":
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "409": { description: Device already exists }
+
+components:
+  schemas:
+    DeviceType:
+      type: string
+      enum: [light, thermostat, lock, switch, sensor]
+
+    DeviceState:
+      type: string
+      enum: [on, off, unknown]
+
+    Device:
+      type: object
+      required: [id, name, device_type, state, connected]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        device_type: { $ref: "#/components/schemas/DeviceType" }
+        state: { $ref: "#/components/schemas/DeviceState" }
+        brightness: { type: integer, minimum: 0, maximum: 100 }
+        temperature: { type: number }
+        connected: { type: boolean }
+        error: { type: string, nullable: true }
+        room: { type: string, nullable: true }
+
+    CreateDeviceRequest:
+      type: object
+      required: [name, device_type]
+      properties:
+        name: { type: string }
+        device_type: { $ref: "#/components/schemas/DeviceType" }
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        state: { $ref: "#/components/schemas/DeviceState" }
+        brightness: { type: integer, minimum: 0, maximum: 100 }
+        temperature: { type: number }
+        connected: { type: boolean }
+
+    TriggerType:
+      type: string
+      enum: [state_change, temperature_above, temperature_below]
+
+    Trigger:
+      type: object
+      required: [type, device_name]
+      properties:
+        type: { $ref: "#/components/schemas/TriggerType" }
+        device_name: { type: string }
+        target_state: { $ref: "#/components/schemas/DeviceState" }
+        threshold: { type: number }
+
+    ActionType:
+      type: string
+      enum: [state, brightness, temperature]
+
+    Action:
+      type: object
+      required: [type, device_name]
+      properties:
+        type: { $ref: "#/components/schemas/ActionType" }
+        device_name: { type: string }
+        state: { $ref: "#/components/schemas/DeviceState" }
+        brightness: { type: integer, minimum: 0, maximum: 100 }
+        temperature: { type: number }
+
+    AutomationRule:
+      type: object
+      required: [name, enabled, trigger, action]
+      properties:
+        name: { type: string }
+        enabled: { type: boolean }
+        trigger: { $ref: "#/components/schemas/Trigger" }
+        action: { $ref: "#/components/schemas/Action" }
+
+    CreateRuleRequest:
+      type: object
+      required: [name, trigger, action]
+      properties:
+        name: { type: string }
+        trigger: { $ref: "#/components/schemas/Trigger" }
+        action: { $ref: "#/components/schemas/Action" }
+
+    DiscoveredDevice:
+      type: object
+      required: [name, host, port, service_type]
+      properties:
+        name: { type: string }
+        host: { type: string }
+        port: { type: integer }
+        service_type: { type: string }
+        properties:
+          type: object
+          additionalProperties: { type: string }
+
+    SystemStatus:
+      type: object
+      required: [devices, clients, rules]
+      properties:
+        devices: { type: integer }
+        clients: { type: integer }
+        rules: { type: integer }
+
+    ServerEvent:
+      type: object
+      required: [id, timestamp, kind, device_name]
+      properties:
+        id: { type: string }
+        timestamp: { type: string, format: date-time }
+        kind: { type: string }
+        device_name: { type: string }
+        detail: { type: string, nullable: true }
+
+    ClientSession:
+      type: object
+      required: [client_id, name, connected]
+      properties:
+        client_id: { type: string }
+        name: { type: string }
+        connected: { type: boolean }
+        connected_at: { type: string, format: date-time }
