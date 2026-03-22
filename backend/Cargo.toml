@@ -14,18 +14,23 @@ path = "src/bin/smart_home_server.rs"
 
 [dependencies]
 uuid = { version = "1", features = ["v4"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 env_logger = "0.11"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "net", "process", "time"] }
 axum = "0.8"
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "limit"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
 mdns-sd = "0.11"
 dotenvy = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rumqttc = { version = "0.24", features = ["use-rustls"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+sha2 = "0.10"
+hex = "0.4"
 
 [dev-dependencies]
 tower = "0.5"

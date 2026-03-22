@@ -6,18 +6,18 @@ interface BadgeProps {
 }
 
 const variants = {
-  default: 'border border-[color:var(--line)] bg-white/80 text-[color:var(--ink-muted)]',
-  success: 'border border-[#8bdec0] bg-[#e8faf2] text-[#1d7355]',
-  warning: 'border border-[#eccb84] bg-[#fff6df] text-[#8b5f10]',
-  error: 'border border-[#e5a0a6] bg-[#feecee] text-[#8f2f38]',
-  info: 'border border-[#9ec4e5] bg-[#ecf6ff] text-[#235988]',
+  default:  'border-[color:var(--line-strong)] bg-[var(--surface)] text-[color:var(--ink-muted)]',
+  success:  'border-[color:var(--success-soft)] bg-[var(--success-soft)] text-[color:var(--success)]',
+  warning:  'border-[color:var(--warn-soft)] bg-[var(--warn-soft)] text-[color:var(--warn)]',
+  error:    'border-[color:var(--danger-soft)] bg-[var(--danger-soft)] text-[color:var(--danger)]',
+  info:     'border-[color:var(--info-soft)] bg-[var(--info-soft)] text-[color:var(--info)]',
 };
 
 export function Badge({ label, variant = 'default' }: BadgeProps) {
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.06em]',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.06em]',
         variants[variant],
       )}
     >

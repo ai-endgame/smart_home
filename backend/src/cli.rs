@@ -5,6 +5,7 @@ use crate::domain::{
     automation::{Action, Trigger},
     device::{DeviceState, DeviceType},
     manager::SmartHome,
+    presence::PresenceRegistry,
 };
 
 const HELP_TEXT: &str = r#"
@@ -45,6 +46,7 @@ const HELP_TEXT: &str = r#"
 pub fn run_cli() {
     let mut home = SmartHome::new();
     let mut engine = AutomationEngine::new();
+    let presence = PresenceRegistry::new();
 
     println!();
     println!("🏠  Smart Home Manager v0.1.0");
@@ -176,7 +178,7 @@ pub fn run_cli() {
                     Some(a) => a,
                     None => { println!("❌ Invalid action format."); continue; }
                 };
-                match engine.add_rule(parts[1], trigger, action) {
+                match engine.add_rule(parts[1], trigger, action, None, vec![]) {
                     Ok(_) => println!("✅ Rule '{}' added.", parts[1]),
                     Err(e) => println!("❌ {}", e),
                 }
@@ -205,12 +207,14 @@ pub fn run_cli() {
             }
 
             "run-rules" => {
-                let actions = engine.evaluate_rules(&home);
+                let now = chrono::Local::now().time();
+                let actions = engine.evaluate_rules(&home, &presence, now);
                 if actions.is_empty() { println!("No rules triggered."); }
                 else {
                     println!("⚡ {} action(s) triggered:", actions.len());
                     for a in &actions { println!("  → {}", a); }
-                    AutomationEngine::execute_actions(&actions, &mut home);
+                    let notifications = AutomationEngine::execute_actions(&actions, &mut home, false);
+                    for msg in &notifications { println!("📢 {}", msg); }
                     println!("✅ Actions executed.");
                 }
             }

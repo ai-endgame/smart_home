@@ -13,6 +13,15 @@ tags:
   - name: devices
   - name: automation
   - name: discovery
+  - name: ecosystem
+  - name: entities
+  - name: areas
+  - name: mqtt
+  - name: matter
+  - name: scripts
+  - name: scenes
+  - name: presence
+  - name: dashboards
 
 paths:
   /health:
@@ -382,6 +391,195 @@ paths:
                 properties:
                   actions_executed: { type: integer }
 
+  /api/automations/webhook/{rule_name}:
+    post:
+      tags: [automation]
+      summary: Fire a webhook-triggered rule
+      parameters:
+        - name: rule_name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Rule action executed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookFireResponse" }
+        "400": { description: Rule does not have a webhook trigger }
+        "404": { description: Rule not found }
+
+  /api/entities:
+    get:
+      tags: [entities]
+      summary: List all entities across the home
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, example: sensor }
+          description: Filter by HA entity domain (e.g. sensor, switch, climate)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Entity" }
+
+  /api/entities/{entity_id}:
+    get:
+      tags: [entities]
+      summary: Get a single entity by entity_id
+      parameters:
+        - { name: entity_id, in: path, required: true, schema: { type: string, example: "device.lamp.switch" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entity" }
+        "404":
+          description: Entity not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /api/devices/{name}/entities:
+    get:
+      tags: [entities]
+      summary: List entities for a specific device
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Entity" }
+        "404": { description: Device not found }
+
+  /api/areas:
+    get:
+      tags: [areas]
+      summary: List all areas
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AreaResponse" }
+
+  /api/areas/{area_id}:
+    get:
+      tags: [areas]
+      summary: Get area detail with device list
+      parameters:
+        - { name: area_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AreaDetailResponse" }
+        "404": { description: Area not found }
+
+  /api/mqtt/status:
+    get:
+      tags: [mqtt]
+      summary: MQTT connection status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MqttStatus" }
+
+  /api/matter/status:
+    get:
+      tags: [matter]
+      summary: Matter scanner status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MatterStatus" }
+
+  /api/matter/devices:
+    get:
+      tags: [matter]
+      summary: List Matter devices discovered via mDNS
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MatterDeviceResponse" }
+
+  /api/matter/fabrics:
+    get:
+      tags: [matter]
+      summary: List Matter fabrics inferred from commissioned devices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FabricResponse" }
+
+  /api/matter/commission:
+    post:
+      tags: [matter]
+      summary: Commission a Matter device using a setup code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommissionRequest" }
+      responses:
+        "202":
+          description: Commissioning job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommissionJobResponse" }
+        "400": { description: Invalid setup code format }
+
+  /api/matter/commission/jobs:
+    get:
+      tags: [matter]
+      summary: List recent commissioning jobs (last 20)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CommissionJobResponse" }
+
+  /api/matter/commission/{job_id}:
+    get:
+      tags: [matter]
+      summary: Get commissioning job status
+      parameters:
+        - { name: job_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommissionJobResponse" }
+        "404": { description: Job not found }
+
   /api/discovery/devices:
     get:
       tags: [discovery]
@@ -394,6 +592,30 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/DiscoveredDevice" }
+
+  /api/protocols:
+    get:
+      tags: [ecosystem]
+      summary: List all supported protocols with metadata
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProtocolInfo" }
+
+  /api/ecosystem:
+    get:
+      tags: [ecosystem]
+      summary: Live topology snapshot of the home
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EcosystemResponse" }
 
   /api/discovery/devices/add:
     post:
@@ -412,6 +634,420 @@ paths:
               schema: { $ref: "#/components/schemas/Device" }
         "409": { description: Device already exists }
 
+  /api/scripts:
+    get:
+      tags: [scripts]
+      summary: List all scripts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Script" }
+    post:
+      tags: [scripts]
+      summary: Create a script
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateScriptRequest" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        "409": { description: Script name already exists }
+
+  /api/scripts/{id}:
+    get:
+      tags: [scripts]
+      summary: Get a script by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        "404": { description: Not found }
+    put:
+      tags: [scripts]
+      summary: Replace a script
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateScriptRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        "404": { description: Not found }
+    delete:
+      tags: [scripts]
+      summary: Delete a script
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found }
+
+  /api/scripts/{id}/run:
+    post:
+      tags: [scripts]
+      summary: Run a script asynchronously
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunScriptRequest" }
+      responses:
+        "202":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunScriptResponse" }
+        "404": { description: Script not found }
+
+  /api/scenes:
+    get:
+      tags: [scenes]
+      summary: List all scenes
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Scene" }
+    post:
+      tags: [scenes]
+      summary: Create a scene
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSceneRequest" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scene" }
+        "409": { description: Scene name already exists }
+
+  /api/scenes/snapshot:
+    post:
+      tags: [scenes]
+      summary: Create a scene from current device states
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SnapshotSceneRequest" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scene" }
+        "409": { description: Scene name already exists }
+
+  /api/scenes/{id}:
+    get:
+      tags: [scenes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scene" }
+        "404": { description: Not found }
+    put:
+      tags: [scenes]
+      summary: Replace scene states
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                states:
+                  type: object
+                  additionalProperties: { $ref: "#/components/schemas/SceneState" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scene" }
+        "404": { description: Not found }
+    delete:
+      tags: [scenes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found }
+
+  /api/scenes/{id}/apply:
+    post:
+      tags: [scenes]
+      summary: Apply a scene to SmartHome
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplySceneResponse" }
+        "404": { description: Scene not found }
+
+  /api/presence/persons:
+    get:
+      tags: [presence]
+      summary: List all tracked persons
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Person" }
+    post:
+      tags: [presence]
+      summary: Create a tracked person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePersonRequest" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Person" }
+        "409": { description: Name already exists }
+
+  /api/presence/persons/{id}:
+    get:
+      tags: [presence]
+      summary: Get a person by ID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Person" }
+        "404": { description: Person not found }
+    delete:
+      tags: [presence]
+      summary: Delete a person
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Person not found }
+
+  /api/presence/persons/{id}/sources/{source}:
+    patch:
+      tags: [presence]
+      summary: Update a presence source for a person
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: source, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSourceRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Person" }
+        "404": { description: Person not found }
+
+  /api/dashboards:
+    get:
+      tags: [dashboards]
+      summary: List all dashboards
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Dashboard" }
+    post:
+      tags: [dashboards]
+      summary: Create a dashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDashboardRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "409": { description: Duplicate name }
+
+  /api/dashboards/{id}:
+    get:
+      tags: [dashboards]
+      summary: Get a dashboard by ID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "404": { description: Not found }
+    delete:
+      tags: [dashboards]
+      summary: Delete a dashboard
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found }
+
+  /api/dashboards/{id}/views:
+    post:
+      tags: [dashboards]
+      summary: Add a view to a dashboard
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateViewRequest" }
+      responses:
+        "200":
+          description: Updated dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "404": { description: Dashboard not found }
+
+  /api/dashboards/{id}/views/{view_id}:
+    delete:
+      tags: [dashboards]
+      summary: Delete a view from a dashboard
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: view_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Updated dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "404": { description: Not found }
+
+  /api/dashboards/{id}/views/{view_id}/cards:
+    post:
+      tags: [dashboards]
+      summary: Add a card to a view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: view_id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCardRequest" }
+      responses:
+        "200":
+          description: Updated dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "404": { description: Not found }
+
+  /api/dashboards/{id}/views/{view_id}/cards/{card_id}:
+    delete:
+      tags: [dashboards]
+      summary: Delete a card from a view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: view_id, in: path, required: true, schema: { type: string } }
+        - { name: card_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Updated dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "404": { description: Not found }
+
+  /api/backup:
+    get:
+      tags: [system]
+      summary: Download a full state backup
+      responses:
+        "200":
+          description: Backup document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupDocument" }
+
+  /api/automation/rules/{name}/safe-mode:
+    post:
+      tags: [automation]
+      summary: Toggle safe mode for a rule
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  safe_mode: { type: boolean }
+        "404": { description: Not found }
+
 components:
   schemas:
     DeviceType:
@@ -421,6 +1057,86 @@ components:
     DeviceState:
       type: string
       enum: [on, off, unknown]
+
+    EntityKind:
+      type: string
+      enum: [switch, light, sensor, binary_sensor, cover, climate, media_player, lock, camera, number, select, button]
+      description: Home Assistant entity domain
+
+    Entity:
+      type: object
+      required: [entity_id, kind, device_id, name, state, attributes]
+      properties:
+        entity_id: { type: string, example: "switch.desk_lamp" }
+        kind: { $ref: "#/components/schemas/EntityKind" }
+        device_id: { type: string }
+        name: { type: string }
+        state: { type: string }
+        unit_of_measurement: { type: string, nullable: true }
+        attributes: { type: object }
+
+    AreaResponse:
+      type: object
+      required: [area_id, name, device_count]
+      properties:
+        area_id: { type: string, example: "living-room" }
+        name: { type: string }
+        floor: { type: integer, nullable: true }
+        icon: { type: string, nullable: true }
+        device_count: { type: integer }
+
+    AreaDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/AreaResponse"
+        - type: object
+          required: [devices]
+          properties:
+            devices:
+              type: array
+              items: { $ref: "#/components/schemas/Device" }
+
+    Protocol:
+      type: string
+      enum: [zigbee, z_wave, matter, thread, wifi, shelly, tasmota, esphome, wled, unknown]
+      description: Communication protocol used to control a device
+
+    ProtocolInfo:
+      type: object
+      required: [id, transport, local_only, mesh, description]
+      properties:
+        id: { type: string, description: "Canonical snake_case protocol identifier" }
+        transport: { type: string, description: "Physical/logical transport layer" }
+        local_only: { type: boolean, description: "True if protocol operates entirely on the local network" }
+        mesh: { type: boolean, description: "True if protocol forms a self-healing mesh network" }
+        description: { type: string }
+
+    ProtocolEntry:
+      allOf:
+        - $ref: "#/components/schemas/ProtocolInfo"
+        - type: object
+          required: [device_count]
+          properties:
+            device_count: { type: integer, description: "Number of devices using this protocol in the home" }
+
+    EcosystemLayers:
+      type: object
+      required: [local_devices, cloud_devices]
+      properties:
+        local_devices: { type: integer, description: "Devices using local-only protocols" }
+        cloud_devices: { type: integer, description: "Devices using cloud-dependent protocols" }
+
+    EcosystemResponse:
+      type: object
+      required: [total_devices, connected_count, disconnected_count, unprotocolled_devices, layers, protocols]
+      properties:
+        total_devices: { type: integer }
+        connected_count: { type: integer }
+        disconnected_count: { type: integer }
+        unprotocolled_devices: { type: integer, description: "Devices with no protocol assigned" }
+        layers: { $ref: "#/components/schemas/EcosystemLayers" }
+        protocols:
+          type: array
+          items: { $ref: "#/components/schemas/ProtocolEntry" }
 
     Device:
       type: object
@@ -435,6 +1151,23 @@ components:
         connected: { type: boolean }
         error: { type: string, nullable: true }
         room: { type: string, nullable: true }
+        control_protocol:
+          nullable: true
+          $ref: "#/components/schemas/Protocol"
+        zigbee_role:
+          nullable: true
+          $ref: "#/components/schemas/ZigbeeRole"
+        thread_role:
+          nullable: true
+          $ref: "#/components/schemas/ThreadRole"
+        matter_fabric:
+          nullable: true
+          $ref: "#/components/schemas/MatterFabric"
+        node_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: "chip-tool node ID (set after commissioning)"
 
     CreateDeviceRequest:
       type: object
@@ -451,41 +1184,95 @@ components:
         temperature: { type: number }
         connected: { type: boolean }
 
+    SunEvent:
+      type: string
+      enum: [sunrise, sunset]
+
+    NumericAttr:
+      type: string
+      enum: [brightness, temperature]
+
+    TimeRange:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string }
+        to:   { type: string }
+
     TriggerType:
       type: string
-      enum: [state_change, temperature_above, temperature_below]
+      enum: [state_change, temperature_above, temperature_below, time, sun, numeric_state_above, numeric_state_below, webhook, presence_change]
 
     Trigger:
       type: object
-      required: [type, device_name]
+      required: [type]
       properties:
         type: { $ref: "#/components/schemas/TriggerType" }
         device_name: { type: string }
         target_state: { $ref: "#/components/schemas/DeviceState" }
         threshold: { type: number }
+        time: { type: string, description: "HH:MM (24h)" }
+        event: { $ref: "#/components/schemas/SunEvent" }
+        offset_minutes: { type: integer }
+        attribute: { $ref: "#/components/schemas/NumericAttr" }
+        id: { type: string }
 
     ActionType:
       type: string
-      enum: [state, brightness, temperature]
+      enum: [state, brightness, temperature, notify, script_call]
 
     Action:
       type: object
-      required: [type, device_name]
+      required: [type]
       properties:
         type: { $ref: "#/components/schemas/ActionType" }
         device_name: { type: string }
         state: { $ref: "#/components/schemas/DeviceState" }
         brightness: { type: integer, minimum: 0, maximum: 100 }
         temperature: { type: number }
+        message: { type: string }
+        script_name: { type: string }
+        args:
+          type: object
+          additionalProperties: true
+
+    ConditionType:
+      type: string
+      enum: [state_equals, brightness_above, brightness_below, template_eval]
+
+    Condition:
+      type: object
+      required: [type]
+      properties:
+        type: { $ref: "#/components/schemas/ConditionType" }
+        device_name: { type: string }
+        state: { $ref: "#/components/schemas/DeviceState" }
+        value: { type: number }
+        expr: { type: string }
+
+    WebhookFireResponse:
+      type: object
+      required: [rule_name, action_executed, message]
+      properties:
+        rule_name: { type: string }
+        action_executed: { type: boolean }
+        message: { type: string }
 
     AutomationRule:
       type: object
-      required: [name, enabled, trigger, action]
+      required: [name, enabled, safe_mode, trigger, action]
       properties:
         name: { type: string }
         enabled: { type: boolean }
+        safe_mode: { type: boolean }
         trigger: { $ref: "#/components/schemas/Trigger" }
         action: { $ref: "#/components/schemas/Action" }
+        time_range:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/TimeRange" }]
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
 
     CreateRuleRequest:
       type: object
@@ -494,6 +1281,127 @@ components:
         name: { type: string }
         trigger: { $ref: "#/components/schemas/Trigger" }
         action: { $ref: "#/components/schemas/Action" }
+        time_range:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/TimeRange" }]
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+
+    # ── Script schemas ───────────────────────────────────────────────────────
+
+    ScriptParam:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        default: {}
+
+    ScriptStep:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [set_state, set_brightness, set_temperature, delay, apply_scene, call_script]
+        device_name: { type: string }
+        state: { type: string }
+        brightness: {}
+        temperature: {}
+        milliseconds: { type: integer, minimum: 0, maximum: 60000 }
+        scene_name: { type: string }
+        script_name: { type: string }
+        args:
+          type: object
+          additionalProperties: true
+
+    Script:
+      type: object
+      required: [id, name, steps]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        params:
+          type: array
+          items: { $ref: "#/components/schemas/ScriptParam" }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/ScriptStep" }
+
+    CreateScriptRequest:
+      type: object
+      required: [name, steps]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        params:
+          type: array
+          items: { $ref: "#/components/schemas/ScriptParam" }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/ScriptStep" }
+
+    RunScriptRequest:
+      type: object
+      properties:
+        args:
+          type: object
+          additionalProperties: true
+
+    RunScriptResponse:
+      type: object
+      required: [script_id, status]
+      properties:
+        script_id: { type: string }
+        status: { type: string, example: accepted }
+
+    # ── Scene schemas ────────────────────────────────────────────────────────
+
+    SceneState:
+      type: object
+      properties:
+        state: { $ref: "#/components/schemas/DeviceState" }
+        brightness: { type: integer, minimum: 0, maximum: 100 }
+        temperature: { type: number }
+
+    Scene:
+      type: object
+      required: [id, name, states]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        states:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/SceneState" }
+
+    CreateSceneRequest:
+      type: object
+      required: [name, states]
+      properties:
+        name: { type: string }
+        states:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/SceneState" }
+
+    SnapshotSceneRequest:
+      type: object
+      required: [name, device_ids]
+      properties:
+        name: { type: string }
+        device_ids:
+          type: array
+          items: { type: string }
+
+    ApplySceneResponse:
+      type: object
+      required: [applied, errors]
+      properties:
+        applied: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
 
     DiscoveredDevice:
       type: object
@@ -533,3 +1441,228 @@ components:
         name: { type: string }
         connected: { type: boolean }
         connected_at: { type: string, format: date-time }
+
+    ZigbeeRole:
+      type: string
+      enum: [coordinator, router, end_device]
+      description: Role of a device in a Zigbee mesh network
+
+    ThreadRole:
+      type: string
+      enum: [border_router, router, end_device, sleepy]
+      description: Role of a device in a Thread mesh network
+
+    MatterFabric:
+      type: object
+      required: [fabric_id, vendor_id, commissioner]
+      properties:
+        fabric_id: { type: string }
+        vendor_id: { type: integer }
+        commissioner: { type: string }
+
+    CommissionRequest:
+      type: object
+      required: [setup_code, node_id]
+      properties:
+        setup_code: { type: string, description: "11-digit Matter setup code" }
+        node_id: { type: integer, format: int64, description: "chip-tool node ID to assign" }
+
+    CommissionStatus:
+      type: string
+      enum: [pending, in_progress, done, failed]
+
+    CommissionJobResponse:
+      type: object
+      required: [job_id, status, message]
+      properties:
+        job_id: { type: string }
+        status: { $ref: "#/components/schemas/CommissionStatus" }
+        message: { type: string }
+        device_id: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+
+    MatterStatus:
+      type: object
+      required: [devices_seen, commissioning_count, sync_enabled]
+      properties:
+        devices_seen: { type: integer, format: int64 }
+        commissioning_count: { type: integer, format: int64 }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+        sync_enabled: { type: boolean }
+        last_sync_at: { type: string, format: date-time, nullable: true }
+
+    MatterDeviceResponse:
+      type: object
+      required: [id, name, host, commissioning_mode, protocol]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        host: { type: string }
+        vendor_id: { type: integer, nullable: true }
+        product_id: { type: integer, nullable: true }
+        discriminator: { type: integer, nullable: true }
+        commissioning_mode: { type: integer }
+        thread_role: { type: string, nullable: true }
+        protocol: { type: string }
+
+    FabricResponse:
+      type: object
+      required: [fabric_id, vendor_id, commissioner, device_count]
+      properties:
+        fabric_id: { type: string }
+        vendor_id: { type: integer }
+        commissioner: { type: string }
+        device_count: { type: integer }
+
+    MqttStatus:
+      type: object
+      required: [connected, topics_received]
+      properties:
+        connected: { type: boolean }
+        broker: { type: string, nullable: true, description: 'Redacted broker URL' }
+        topics_received: { type: integer, format: int64 }
+        last_message_at: { type: string, format: date-time, nullable: true }
+
+    PresenceState:
+      type: string
+      enum: [home, away, unknown]
+
+    SourceState:
+      type: string
+      enum: [home, away, unknown]
+
+    Person:
+      type: object
+      required: [id, name, grace_period_secs, effective_state, sources]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        grace_period_secs: { type: integer, minimum: 0 }
+        effective_state: { $ref: "#/components/schemas/PresenceState" }
+        sources:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/SourceState" }
+
+    CreatePersonRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        grace_period_secs: { type: integer, minimum: 0, default: 120 }
+
+    UpdateSourceRequest:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: "#/components/schemas/SourceState" }
+
+    CardContent:
+      oneOf:
+        - type: object
+          required: [card_type, entity_id]
+          properties:
+            card_type: { type: string, enum: [entity_card] }
+            entity_id: { type: string }
+        - type: object
+          required: [card_type, entity_id, min, max]
+          properties:
+            card_type: { type: string, enum: [gauge_card] }
+            entity_id: { type: string }
+            min: { type: number }
+            max: { type: number }
+            unit: { type: string, nullable: true }
+        - type: object
+          required: [card_type, entity_id, action]
+          properties:
+            card_type: { type: string, enum: [button_card] }
+            entity_id: { type: string }
+            action: { type: string, example: toggle }
+        - type: object
+          required: [card_type, title, entity_ids, aggregation]
+          properties:
+            card_type: { type: string, enum: [stat_card] }
+            title: { type: string }
+            entity_ids: { type: array, items: { type: string } }
+            aggregation: { type: string, enum: [count, sum, avg] }
+        - type: object
+          required: [card_type, entity_id, hours]
+          properties:
+            card_type: { type: string, enum: [history_card] }
+            entity_id: { type: string }
+            hours: { type: integer, minimum: 1 }
+      discriminator:
+        propertyName: card_type
+
+    Card:
+      type: object
+      required: [id, card_type]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, nullable: true }
+      allOf:
+        - $ref: "#/components/schemas/CardContent"
+
+    View:
+      type: object
+      required: [id, title, cards]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        icon: { type: string, nullable: true }
+        cards:
+          type: array
+          items: { $ref: "#/components/schemas/Card" }
+
+    Dashboard:
+      type: object
+      required: [id, name, views, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        icon: { type: string, nullable: true }
+        views:
+          type: array
+          items: { $ref: "#/components/schemas/View" }
+        created_at: { type: string, format: date-time }
+
+    CreateDashboardRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        icon: { type: string, nullable: true }
+
+    CreateViewRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        icon: { type: string, nullable: true }
+
+    CreateCardRequest:
+      $ref: "#/components/schemas/CardContent"
+
+    BackupDocument:
+      type: object
+      required: [version, exported_at, devices, automation_rules, scripts, scenes, persons, dashboards]
+      properties:
+        version: { type: string }
+        exported_at: { type: string, format: date-time }
+        devices:
+          type: array
+          items: { $ref: "#/components/schemas/Device" }
+        automation_rules:
+          type: array
+          items: { $ref: "#/components/schemas/AutomationRule" }
+        scripts:
+          type: array
+          items: { $ref: "#/components/schemas/Script" }
+        scenes:
+          type: array
+          items: { $ref: "#/components/schemas/Scene" }
+        persons:
+          type: array
+          items: { $ref: "#/components/schemas/PersonTracker" }
+        dashboards:
+          type: array
+          items: { $ref: "#/components/schemas/Dashboard" }
