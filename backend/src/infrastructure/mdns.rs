@@ -5,16 +5,28 @@ use std::time::Duration;
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::Serialize;
 
+use crate::domain::device::{Protocol, ZigbeeRole};
+
 const BROWSE_TYPES: &[(&str, &str)] = &[
-    ("_hap._tcp.local.", "sensor"),
-    ("_googlecast._tcp.local.", "switch"),
-    ("_esphomelib._tcp.local.", "sensor"),
-    ("_wled._tcp.local.", "light"),
-    ("_shelly._tcp.local.", "switch"),
-    ("_hue._tcp.local.", "light"),
-    ("_arduino._tcp.local.", "sensor"),
-    ("_smartthings._tcp.local.", "switch"),
-    ("_matter._tcp.local.", "sensor"),
+    // Lighting
+    ("_wled._tcp.local.",            "light"),        // WLED LED controller
+    ("_hue._tcp.local.",             "hub"),           // Philips Hue Bridge
+    // Climate & sensors
+    ("_esphomelib._tcp.local.",      "sensor"),        // ESPHome devices
+    ("_arduino._tcp.local.",         "sensor"),        // Arduino IoT
+    ("_matter._tcp.local.",          "sensor"),        // Matter devices
+    // Access & power
+    ("_shelly._tcp.local.",          "switch"),        // Shelly smart switches
+    // Media & entertainment
+    ("_googlecast._tcp.local.",      "media_player"),  // Chromecast / Google Cast
+    ("_airplay._tcp.local.",         "media_player"),  // AirPlay (Apple TV, HomePod, smart TVs)
+    ("_raop._tcp.local.",            "speaker"),       // AirPlay audio output (HomePod, AirPlay speakers)
+    ("_sonos._tcp.local.",           "speaker"),       // Sonos speakers
+    ("_spotify-connect._tcp.local.", "speaker"),       // Spotify Connect speakers
+    // Generic protocols
+    ("_hap._tcp.local.",             "sensor"),        // HomeKit accessory protocol (varies)
+    // Hubs & platforms
+    ("_smartthings._tcp.local.",     "hub"),           // SmartThings hub
 ];
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +39,10 @@ pub struct DiscoveredDevice {
     pub port: u16,
     pub properties: HashMap<String, String>,
     pub suggested_type: String,
+    /// Protocol identified for this device (set by mDNS or MQTT bridge).
+    pub protocol: Option<Protocol>,
+    /// Zigbee mesh role (set only for devices discovered via MQTT bridge).
+    pub zigbee_role: Option<ZigbeeRole>,
 }
 
 pub type DiscoveryStore = Arc<RwLock<HashMap<String, DiscoveredDevice>>>;
@@ -35,11 +51,19 @@ pub fn new_store() -> DiscoveryStore {
     Arc::new(RwLock::new(HashMap::new()))
 }
 
-pub fn start(store: DiscoveryStore) {
+/// Returns `true` if discovery was started, `false` if it was disabled via
+/// the `MDNS_DISABLED` env var (useful on macOS/Windows Docker where multicast
+/// does not reach the container over a bridge network).
+pub fn start(store: DiscoveryStore) -> bool {
+    if std::env::var("MDNS_DISABLED").map(|v| v.eq_ignore_ascii_case("true")).unwrap_or(false) {
+        log::warn!("mDNS: discovery disabled via MDNS_DISABLED env var");
+        return false;
+    }
     std::thread::Builder::new()
         .name("mdns-discovery".into())
         .spawn(move || discovery_loop(store))
         .expect("failed to spawn mDNS discovery thread");
+    true
 }
 
 fn discovery_loop(store: DiscoveryStore) {
@@ -99,13 +123,15 @@ fn handle_event(event: ServiceEvent, store: &DiscoveryStore, service_type: &str,
                 port: info.get_port(),
                 properties,
                 suggested_type: suggested_type.to_string(),
+                protocol: None,
+                zigbee_role: None,
             };
             log::info!("mDNS: found '{}' ({})", device.name, service_type);
-            store.write().unwrap().insert(id, device);
+            store.write().unwrap_or_else(|e| e.into_inner()).insert(id, device);
         }
         ServiceEvent::ServiceRemoved(_, fullname) => {
             log::info!("mDNS: lost '{fullname}'");
-            store.write().unwrap().remove(&fullname);
+            store.write().unwrap_or_else(|e| e.into_inner()).remove(&fullname);
         }
         _ => {}
     }

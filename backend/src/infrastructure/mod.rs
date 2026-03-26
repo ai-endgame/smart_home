@@ -1,2 +1,11 @@
+pub mod automation_loop;
 pub mod db;
+pub mod device_control;
+pub mod matter;
+pub mod matter_control;
 pub mod mdns;
+pub mod mqtt;
+pub mod script_executor;
+pub mod sun;
+pub mod template;
+pub mod webhook;

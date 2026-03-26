@@ -20,24 +20,33 @@ export function Modal({ title, open, onClose, children }: ModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#08120f]/45 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-white/55 bg-[linear-gradient(170deg,rgba(255,255,255,0.98),rgba(242,249,245,0.96))] p-6 shadow-[0_28px_60px_rgba(10,24,19,0.3)]">
-        <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-[rgba(5,7,15,0.7)] backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Dialog */}
+      <div className="relative my-auto w-full max-w-md flex flex-col max-h-[calc(100dvh-2rem)] rounded-2xl border border-[var(--line-strong)] bg-[var(--bg-modal)] shadow-[var(--shadow-modal)]">
+        {/* Header — sticky */}
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] px-6 py-4">
           <div>
             <p className="section-kicker">Quick Create</p>
-            <h2 className="mt-1 text-xl font-semibold text-[color:var(--ink-strong)]">{title}</h2>
+            <h2 className="mt-1 text-lg font-semibold text-[color:var(--ink-strong)]">{title}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--line)] text-lg text-[color:var(--ink-muted)] hover:bg-white"
+            className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-lg text-[color:var(--ink-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[color:var(--ink-strong)]"
             aria-label="Close"
           >
-            &times;
+            ×
           </button>
         </div>
-        {children}
+
+        {/* Content — scrollable */}
+        <div className="overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

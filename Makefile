@@ -1,4 +1,4 @@
-.PHONY: build run run-server test lint lint-fix clean fmt check all
+.PHONY: build run run-server run-server-db run-server-mqtt mqtt-broker commission-sidecar test lint lint-fix clean fmt check all db db-stop db-logs
 
 # Build the project
 build:
@@ -14,6 +14,26 @@ run:
 
 # Run the HTTP server binary
 run-server:
+	cargo run --bin smart_home_server
+
+# Run the HTTP server with PostgreSQL persistence + MQTT bridge
+run-server-db: db mqtt-broker
+	DATABASE_URL=postgres://smart_home:smart_home@localhost:5432/smart_home \
+	MQTT_URL=mqtt://localhost:1883 \
+	cargo run --bin smart_home_server
+
+# Start the chip-tool Docker sidecar (for Matter commissioning + control)
+commission-sidecar:
+	docker compose up chip-tool -d
+
+# Start a local Mosquitto MQTT broker (for dev/testing)
+mqtt-broker:
+	docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto || docker start mosquitto
+
+# Run the HTTP server with PostgreSQL + MQTT bridge
+run-server-mqtt: db mqtt-broker
+	DATABASE_URL=postgres://smart_home:smart_home@localhost:5432/smart_home \
+	MQTT_URL=mqtt://localhost:1883 \
 	cargo run --bin smart_home_server
 
 # Run all tests
@@ -45,6 +65,18 @@ check: fmt-check lint test
 
 # Full CI pipeline
 all: fmt-check lint test build
+
+# Start only the PostgreSQL container (detached)
+db:
+	docker compose up postgres -d
+
+# Stop the PostgreSQL container
+db-stop:
+	docker compose stop postgres
+
+# Tail PostgreSQL logs
+db-logs:
+	docker compose logs -f postgres
 
 # Clean build artifacts
 clean:

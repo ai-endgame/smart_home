@@ -10,3 +10,5 @@ export const toggleRule = (name: string) =>
   apiFetch<AutomationRule>(`/api/automation/rules/${name}/toggle`, { method: 'POST' });
 export const runAutomation = () =>
   apiFetch('/api/automation/run', { method: 'POST' });
+export const toggleSafeMode = (name: string) =>
+  apiFetch<{ name: string; safe_mode: boolean }>(`/api/automation/rules/${name}/safe-mode`, { method: 'POST' });

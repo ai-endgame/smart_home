@@ -19,12 +19,18 @@ services:
     build:
       context: ./backend
       dockerfile: ../Dockerfile.backend
+    # network_mode: host is required for mDNS discovery (multicast UDP does not
+    # cross Docker bridge networks). This works on Linux only — on macOS/Windows
+    # Docker Desktop set MDNS_DISABLED=true and run the backend natively instead.
+    network_mode: host
     environment:
-      DATABASE_URL: postgres://smart_home:smart_home@postgres/smart_home
+      # With host networking the postgres container is reachable via 127.0.0.1
+      # because its port 5432 is mapped to the host.
+      DATABASE_URL: postgres://smart_home:smart_home@127.0.0.1/smart_home
       SMART_HOME_BIND_ADDR: 0.0.0.0:8080
       RUST_LOG: info
-    ports:
-      - "8080:8080"
+      # Set to "true" on macOS/Windows where host networking is unavailable.
+      MDNS_DISABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,11 +40,22 @@ services:
       context: ./frontend
       dockerfile: ../Dockerfile.frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8080
+      # Backend is on the host network, so use localhost from the browser.
+      NEXT_PUBLIC_API_URL: http://localhost:8080
     ports:
       - "3000:3000"
     depends_on:
       - backend
 
+  chip-tool:
+    image: us-docker.pkg.dev/connectedhomeip-testing/chip-tool/chip-tool:latest
+    container_name: chip-tool
+    # Keep the container alive so we can `docker exec` into it per command
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - chip_tool_config:/tmp/chip_tool_config
+    network_mode: host
+
 volumes:
   postgres_data:
+  chip_tool_config:

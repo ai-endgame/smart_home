@@ -1,4 +1,16 @@
+pub mod areas;
+pub mod auth;
 pub mod automation;
+pub mod energy;
+pub mod dashboards;
+pub mod commission;
 pub mod devices;
 pub mod discovery;
+pub mod ecosystem;
+pub mod entities;
+pub mod matter;
+pub mod mqtt;
+pub mod presence;
+pub mod scenes;
+pub mod scripts;
 pub mod system;

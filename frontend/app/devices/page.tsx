@@ -3,42 +3,49 @@ import { useState } from 'react';
 import { useDevices } from '@/lib/hooks/use-devices';
 import { DeviceCard } from '@/components/devices/device-card';
 import { AddDeviceModal } from '@/components/devices/add-device-modal';
+import { DeviceControlModal } from '@/components/devices/device-control-modal';
 import { Button } from '@/components/ui/button';
-import { DeviceType } from '@/lib/api/types';
+import { DeviceCardSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import type { Device, DeviceType } from '@/lib/api/types';
 
 export default function DevicesPage() {
-  const { devices, isLoading, add, remove, setState } = useDevices();
-  const [open, setOpen] = useState(false);
+  const { devices, isLoading, add, remove, setState, setBrightness, setTemperature, connect, disconnect } = useDevices();
+  const [addOpen, setAddOpen] = useState(false);
+  const [controlling, setControlling] = useState<Device | null>(null);
 
   const handleAdd = async (name: string, type: DeviceType) => {
     await add({ name, device_type: type });
   };
 
-  if (isLoading) {
-    return (
-      <div className="surface-card p-6">
-        <p className="text-sm text-[color:var(--ink-muted)]">Loading devices...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
+      {/* Header */}
       <section className="surface-card p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="section-kicker">Device Manager</p>
             <h1 className="section-title">Rooms and hardware at a glance</h1>
-            <p className="section-subtitle">Track state, power, and health for every connected device.</p>
+            <p className="section-subtitle">
+              Track state, power, and health for every connected device.
+            </p>
           </div>
-          <Button onClick={() => setOpen(true)}>+ Add Device</Button>
+          <Button onClick={() => setAddOpen(true)}>+ Add Device</Button>
         </div>
       </section>
 
-      {devices.length === 0 ? (
-        <section className="surface-card p-6">
-          <p className="text-sm text-[color:var(--ink-muted)]">No devices yet. Add one to get started.</p>
+      {/* Content */}
+      {isLoading ? (
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <DeviceCardSkeleton key={i} />)}
         </section>
+      ) : devices.length === 0 ? (
+        <EmptyState
+          icon="💡"
+          title="No devices yet"
+          subtitle="Add your first device to start monitoring and controlling your home."
+          action={<Button onClick={() => setAddOpen(true)}>+ Add Device</Button>}
+        />
       ) : (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {devices.map(d => (
@@ -47,12 +54,24 @@ export default function DevicesPage() {
               device={d}
               onToggle={() => setState(d.name, d.state === 'on' ? 'off' : 'on')}
               onDelete={() => remove(d.name)}
+              onControl={() => setControlling(d)}
             />
           ))}
         </section>
       )}
 
-      <AddDeviceModal open={open} onClose={() => setOpen(false)} onAdd={handleAdd} />
+      <AddDeviceModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
+
+      <DeviceControlModal
+        device={controlling}
+        open={controlling !== null}
+        onClose={() => setControlling(null)}
+        onSetState={setState}
+        onSetBrightness={setBrightness}
+        onSetTemperature={setTemperature}
+        onConnect={connect}
+        onDisconnect={disconnect}
+      />
     </div>
   );
 }

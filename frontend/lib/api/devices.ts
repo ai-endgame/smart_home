@@ -11,6 +11,10 @@ export const deleteDevice = (name: string) =>
   apiFetch<void>(`/api/devices/${name}`, { method: 'DELETE' });
 export const setDeviceState = (name: string, state: string) =>
   apiFetch<Device>(`/api/devices/${name}/state`, { method: 'PATCH', body: JSON.stringify({ state }) });
+export const setDeviceBrightness = (name: string, brightness: number) =>
+  apiFetch<Device>(`/api/devices/${name}/brightness`, { method: 'PATCH', body: JSON.stringify({ brightness }) });
+export const setDeviceTemperature = (name: string, temperature: number) =>
+  apiFetch<Device>(`/api/devices/${name}/temperature`, { method: 'PATCH', body: JSON.stringify({ temperature }) });
 export const connectDevice = (name: string) =>
   apiFetch<Device>(`/api/devices/${name}/connect`, { method: 'POST' });
 export const disconnectDevice = (name: string) =>
